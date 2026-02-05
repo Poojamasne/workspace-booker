@@ -150,7 +150,7 @@ export default function AdminClients() {
                   <Input
                     value={formData.contactPerson}
                     onChange={(e) => setFormData(prev => ({ ...prev, contactPerson: e.target.value }))}
-                    placeholder="John Smith"
+                    placeholder="Aniket Sangale"
                     required
                   />
                 </div>

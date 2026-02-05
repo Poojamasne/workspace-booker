@@ -5,7 +5,7 @@ export const demoUsers: User[] = [
   {
     id: 'user-1',
     email: 'client@zonixtec.com',
-    name: 'John Smith',
+    name: 'Aniket Sangale',
     role: 'client',
     companyName: 'Zonixtec',
     createdAt: '2024-01-15T10:00:00Z',
@@ -27,7 +27,7 @@ export const demoClients: Client[] = [
     email: 'contact@zonixtec.com',
     phone: '+1 (555) 123-4567',
     address: '123 Tech Park, Suite 400, San Francisco, CA 94105',
-    contactPerson: 'John Smith',
+    contactPerson: 'Aniket Sangale',
     createdAt: '2024-01-15T10:00:00Z',
     updatedAt: '2024-01-15T10:00:00Z',
   },
