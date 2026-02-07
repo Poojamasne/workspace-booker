@@ -23,10 +23,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Package, Edit, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Plus, Package, Edit, Trash2, Calendar, Users, IndianRupee, Search, Filter } from 'lucide-react';
 import { ProductType, PRODUCT_TYPE_LABELS, Product } from '@/types';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 
 export default function AdminProducts() {
@@ -34,8 +34,10 @@ export default function AdminProducts() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
   const [formData, setFormData] = useState({
     type: 'private_cabin' as ProductType,
     customType: '',
@@ -52,17 +54,19 @@ export default function AdminProducts() {
     const client = clients.find(c => c.id === product.clientId);
     const matchesSearch = 
       PRODUCT_TYPE_LABELS[product.type].toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client?.companyName.toLowerCase().includes(searchQuery.toLowerCase());
+      client?.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.type === 'others' && product.customType?.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = filterStatus === 'all' || product.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    const matchesClient = filterClient === 'all' || product.clientId === filterClient;
+    return matchesSearch && matchesStatus && matchesClient;
   });
 
   const defaultPrices: Record<ProductType, number> = {
-    private_cabin: 1500,
-    work_desk: 350,
-    floating_seat: 200,
-    conference_room: 200,
-    meeting_room: 150,
+    private_cabin: 15000,
+    work_desk: 3500,
+    floating_seat: 2000,
+    conference_room: 2000,
+    meeting_room: 1500,
     others: 0,
   };
 
@@ -135,6 +139,34 @@ export default function AdminProducts() {
     }
   };
 
+  const handleViewDetails = (product: Product) => {
+    setViewingProduct(product);
+  };
+
+  // Get days remaining
+  const getDaysRemaining = (endDate: string) => {
+    const days = differenceInDays(new Date(endDate), new Date());
+    return days > 0 ? `${days} days remaining` : 'Expired';
+  };
+
+  // Get product icon
+  const getProductIcon = (type: ProductType) => {
+    switch (type) {
+      case 'private_cabin': return '🏢';
+      case 'work_desk': return '💼';
+      case 'floating_seat': return '💺';
+      case 'conference_room': return '👥';
+      case 'meeting_room': return '🗣️';
+      default: return '📦';
+    }
+  };
+
+  // Calculate summary statistics
+  const activeProducts = products.filter(p => p.status === 'active');
+  const pendingProducts = products.filter(p => p.status === 'pending');
+  const totalRevenue = products.reduce((sum, p) => sum + p.totalPrice, 0);
+  const activeRevenue = activeProducts.reduce((sum, p) => sum + p.totalPrice, 0);
+
   return (
     <DashboardLayout role="admin">
       <PageHeader 
@@ -148,7 +180,8 @@ export default function AdminProducts() {
                 Add Product
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            {/* FIXED: Added responsive max-height and overflow-auto */}
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingProduct ? 'Edit Product' : 'Add New Product'}
@@ -219,13 +252,17 @@ export default function AdminProducts() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Price per Unit ($)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={formData.pricePerUnit}
-                      onChange={(e) => setFormData(prev => ({ ...prev, pricePerUnit: parseFloat(e.target.value) || 0 }))}
-                    />
+                    <Label>Price per Unit</Label>
+                    <div className="relative">
+                      <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        min="0"
+                        value={formData.pricePerUnit}
+                        onChange={(e) => setFormData(prev => ({ ...prev, pricePerUnit: parseFloat(e.target.value) || 0 }))}
+                        className="pl-9"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -280,12 +317,15 @@ export default function AdminProducts() {
 
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Total Price</p>
-                  <p className="text-2xl font-bold">
-                    ${(formData.quantity * formData.pricePerUnit).toLocaleString()}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <IndianRupee className="w-6 h-6" />
+                    <p className="text-2xl font-bold">
+                      {(formData.quantity * formData.pricePerUnit).toLocaleString('en-IN')}
+                    </p>
+                  </div>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="pt-4">
                   <Button type="button" variant="outline" onClick={resetForm}>
                     Cancel
                   </Button>
@@ -299,95 +339,260 @@ export default function AdminProducts() {
         }
       />
 
-      {/* Filters */}
+      {/* View Product Details Dialog - FIXED with responsive height */}
+      <Dialog open={!!viewingProduct} onOpenChange={() => setViewingProduct(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Product Details</DialogTitle>
+          </DialogHeader>
+          {viewingProduct && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl">
+                    {getProductIcon(viewingProduct.type)}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">
+                      {viewingProduct.type === 'others' ? viewingProduct.customType : PRODUCT_TYPE_LABELS[viewingProduct.type]}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Product ID: {viewingProduct.id.slice(0, 8).toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+                <StatusBadge status={viewingProduct.status} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Client</p>
+                  <p className="font-medium">
+                    {clients.find(c => c.id === viewingProduct.clientId)?.companyName || 'Unknown'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Quantity</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    {viewingProduct.quantity} units
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Unit Price</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <IndianRupee className="w-4 h-4" />
+                    {viewingProduct.pricePerUnit.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Total Value</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <IndianRupee className="w-4 h-4" />
+                    {viewingProduct.totalPrice.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Start Date</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {format(new Date(viewingProduct.startDate), 'MMM d, yyyy')}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">End Date</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {format(new Date(viewingProduct.endDate), 'MMM d, yyyy')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Duration</p>
+                <p className="font-medium">
+                  {differenceInDays(new Date(viewingProduct.endDate), new Date(viewingProduct.startDate))} days
+                </p>
+              </div>
+
+              {viewingProduct.comments && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Notes</p>
+                  <p className="text-sm bg-muted/50 p-3 rounded-lg">
+                    {viewingProduct.comments}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setViewingProduct(null);
+                    handleEdit(viewingProduct);
+                  }}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+                <Button onClick={() => {
+                  setViewingProduct(null);
+                  handleDelete(viewingProduct.id);
+                }} variant="destructive">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+
+      {/* Filters - UNCHANGED */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <Input
-          placeholder="Search products or clients..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search products, clients, or custom types..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[150px]">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4" />
+                <span>{filterStatus === 'all' ? 'All Status' : filterStatus}</span>
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterClient} onValueChange={setFilterClient}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="All Clients" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clients.map(client => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.companyName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Products Table */}
+      {/* Products List - Card Layout - UNCHANGED */}
       {filteredProducts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Package className="w-12 h-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No products found</h3>
             <p className="text-muted-foreground text-sm">
-              {searchQuery || filterStatus !== 'all' ? 'Try different filters' : 'Add your first product'}
+              {searchQuery || filterStatus !== 'all' || filterClient !== 'all' ? 'Try different filters' : 'Add your first product'}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">All Products ({filteredProducts.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Product</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Client</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Quantity</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Duration</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Price</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProducts.map(product => {
-                    const client = clients.find(c => c.id === product.clientId);
-                    return (
-                      <tr key={product.id} className="border-b last:border-0 hover:bg-muted/50">
-                        <td className="py-3 px-4">
-                          <p className="font-medium text-sm">
+        <div className="space-y-6">
+          {/* Products Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map(product => {
+              const client = clients.find(c => c.id === product.clientId);
+              return (
+                <Card key={product.id} className="hover:shadow-lg transition-shadow duration-300 group">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="text-2xl">
+                          {getProductIcon(product.type)}
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">
                             {product.type === 'others' ? product.customType : PRODUCT_TYPE_LABELS[product.type]}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4 text-sm">{client?.companyName || 'Unknown'}</td>
-                        <td className="py-3 px-4 text-sm">{product.quantity}</td>
-                        <td className="py-3 px-4 text-sm">
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            {client?.companyName || 'Unknown Client'}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <StatusBadge status={product.status} />
+                      <span className="text-xs text-muted-foreground">
+                        {getDaysRemaining(product.endDate)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Duration</span>
+                        <span className="font-medium">
                           {format(new Date(product.startDate), 'MMM d')} - {format(new Date(product.endDate), 'MMM d')}
-                        </td>
-                        <td className="py-3 px-4 font-medium text-sm">${product.totalPrice.toLocaleString()}</td>
-                        <td className="py-3 px-4">
-                          <StatusBadge status={product.status} />
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Total Value</span>
+                        <div className="flex items-center gap-1">
+                          <IndianRupee className="w-4 h-4" />
+                          <span className="font-bold text-lg">{product.totalPrice.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {product.comments && (
+                      <div className="pt-3 border-t">
+                        <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                        <p className="text-sm line-clamp-2">{product.comments}</p>
+                      </div>
+                    )}
+                  </CardContent>
+
+                  <CardFooter className="pt-0 flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => handleViewDetails(product)}
+                    >
+                      Details
+                    </Button>
+                    <Button 
+                      variant="secondary" 
+                      className="flex-1"
+                      onClick={() => handleEdit(product)}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleDelete(product.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
       )}
     </DashboardLayout>
   );

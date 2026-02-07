@@ -73,7 +73,7 @@ export default function ClientDashboard() {
           title="Paid Invoices"
           value={stats.paidInvoices}
           icon={<CheckCircle className="w-6 h-6" />}
-          description={`$${stats.totalRevenue.toLocaleString()} total`}
+          description={`₹${stats.totalRevenue.toLocaleString('en-IN')} total`}
         />
       </div>
 
@@ -96,7 +96,7 @@ export default function ClientDashboard() {
                     <div>
                       <p className="font-medium text-sm">{PRODUCT_TYPE_LABELS[product.type]}</p>
                       <p className="text-xs text-muted-foreground">
-                        {product.quantity} {product.quantity === 1 ? 'unit' : 'units'} · ${product.totalPrice}/mo
+                        {product.quantity} {product.quantity === 1 ? 'unit' : 'units'} · ₹{product.totalPrice.toLocaleString('en-IN')}/mo
                       </p>
                     </div>
                     <StatusBadge status={product.status} />
@@ -171,7 +171,7 @@ export default function ClientDashboard() {
                     {invoices.filter(i => i.status === 'pending' || i.status === 'sent').map(invoice => (
                       <tr key={invoice.id} className="border-b last:border-0">
                         <td className="py-3 px-4 font-medium text-sm">{invoice.invoiceNumber}</td>
-                        <td className="py-3 px-4 text-sm">${invoice.total.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-sm">₹{invoice.total.toLocaleString('en-IN')}</td>
                         <td className="py-3 px-4 text-sm">{format(new Date(invoice.dueDate), 'MMM d, yyyy')}</td>
                         <td className="py-3 px-4"><StatusBadge status={invoice.status} /></td>
                       </tr>

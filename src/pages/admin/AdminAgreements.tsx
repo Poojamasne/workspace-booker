@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/dashboard/PageHeader';
-import StatusBadge from '@/components/dashboard/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,284 +14,295 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, Eye, Download, Check, X } from 'lucide-react';
-import { Agreement, AgreementStatus, PRODUCT_TYPE_LABELS } from '@/types';
-import { format } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { 
+  Users, 
+  Search, 
+  Filter,
+  Building,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  FileText,
+  IndianRupee,
+  Calendar,
+  Eye,
+  ChevronRight
+} from 'lucide-react';
+import { Agreement, AgreementStatus, Client } from '@/types';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 export default function AdminAgreements() {
-  const { agreements, clients, updateAgreement } = useData();
+  const { agreements: initialAgreements, clients: initialClients } = useData();
+  const navigate = useNavigate();
 
-  const [viewingAgreement, setViewingAgreement] = useState<Agreement | null>(null);
+  const [agreements, setAgreements] = useState<Agreement[]>(initialAgreements);
+  const [clients, setClients] = useState<Client[]>(initialClients);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
-  const filteredAgreements = agreements.filter(agreement => {
-    const client = clients.find(c => c.id === agreement.clientId);
-    const matchesSearch = client?.companyName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || agreement.status === filterStatus;
-    return matchesSearch && matchesStatus;
+  // Load data from localStorage on component mount
+  useEffect(() => {
+    const loadDataFromLocalStorage = () => {
+      try {
+        const storedAgreements = localStorage.getItem('agreements');
+        const storedClients = localStorage.getItem('clients');
+
+        if (storedAgreements) {
+          const parsedAgreements = JSON.parse(storedAgreements);
+          setAgreements(parsedAgreements);
+        }
+
+        if (storedClients) {
+          const parsedClients = JSON.parse(storedClients);
+          setClients(parsedClients);
+        }
+      } catch (error) {
+        console.error('Error loading data from localStorage:', error);
+      }
+    };
+
+    loadDataFromLocalStorage();
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === 'agreements') {
+      try {
+        const parsedAgreements = JSON.parse(e.newValue || '[]');
+        setAgreements(parsedAgreements);
+      } catch (error) {
+        console.error('Error parsing agreements from storage:', error);
+      }
+    }
+    if (e.key === 'clients') {
+      try {
+        const parsedClients = JSON.parse(e.newValue || '[]');
+        setClients(parsedClients);
+      } catch (error) {
+        console.error('Error parsing clients from storage:', error);
+      }
+    }
+  };
+
+  // Group agreements by client
+  const clientAgreements = clients.map(client => {
+    const clientAgreements = agreements.filter(agreement => agreement.clientId === client.id);
+    const approvedAgreements = clientAgreements.filter(a => a.status === 'approved');
+    const pendingAgreements = clientAgreements.filter(a => a.status === 'pending');
+    
+    return {
+      client,
+      agreements: clientAgreements,
+      totalAgreements: clientAgreements.length,
+      totalValue: clientAgreements.reduce((sum, a) => sum + a.totalValue, 0),
+      pendingAgreements: pendingAgreements.length,
+      approvedAgreements: approvedAgreements.length,
+      latestAgreement: clientAgreements.length > 0 
+        ? clientAgreements[clientAgreements.length - 1] 
+        : null,
+    };
+  }).filter(clientGroup => clientGroup.agreements.length > 0);
+
+  // Filter client agreements
+  const filteredClientAgreements = clientAgreements.filter(clientGroup => {
+    const client = clientGroup.client;
+    const matchesSearch = client.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         client.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         client.email.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (filterClient !== 'all' && client.id !== filterClient) return false;
+    
+    if (filterStatus === 'all') return matchesSearch;
+    
+    return matchesSearch && clientGroup.agreements.some(a => a.status === filterStatus);
   });
 
-  const handleStatusChange = (id: string, status: AgreementStatus) => {
-    updateAgreement(id, { status });
-    toast.success(`Agreement ${status === 'approved' ? 'approved' : 'rejected'} successfully`);
-    setViewingAgreement(null);
+  const handleViewClientDetails = (clientId: string) => {
+    navigate(`/admin/agreements/${clientId}`);
   };
 
-  const handleDownload = (agreement: Agreement) => {
-    const client = clients.find(c => c.id === agreement.clientId);
-    const content = `
-WORKSPACE AGREEMENT
-==================
+  const handleDeleteClient = () => {
+    if (!clientToDelete) return;
 
-Agreement ID: ${agreement.id}
-Date: ${format(new Date(agreement.createdAt), 'MMMM d, yyyy')}
-Status: ${agreement.status.toUpperCase()}
+    try {
+      // Remove client's agreements
+      const updatedAgreements = agreements.filter(a => a.clientId !== clientToDelete.id);
+      setAgreements(updatedAgreements);
+      localStorage.setItem('agreements', JSON.stringify(updatedAgreements));
 
-CLIENT INFORMATION
-------------------
-Company: ${client?.companyName || 'N/A'}
-Contact: ${client?.contactPerson || 'N/A'}
-Email: ${client?.email || 'N/A'}
-Address: ${client?.address || 'N/A'}
+      // Remove client
+      const updatedClients = clients.filter(c => c.id !== clientToDelete.id);
+      setClients(updatedClients);
+      localStorage.setItem('clients', JSON.stringify(updatedClients));
 
-AGREEMENT PERIOD
-----------------
-Start Date: ${format(new Date(agreement.startDate), 'MMMM d, yyyy')}
-End Date: ${format(new Date(agreement.endDate), 'MMMM d, yyyy')}
-
-PRODUCTS
---------
-${agreement.products.map(p => 
-  `- ${PRODUCT_TYPE_LABELS[p.type]}: ${p.quantity} unit(s) @ $${p.pricePerUnit}/unit = $${p.totalPrice}`
-).join('\n')}
-
-Total Value: $${agreement.totalValue.toLocaleString()}
-
-TERMS AND CONDITIONS
---------------------
-${agreement.termsAndConditions}
-
----
-Generated on ${format(new Date(), 'MMMM d, yyyy')}
-    `;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `agreement-${agreement.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Agreement downloaded');
+      toast.success('Client and their agreements deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete client');
+      console.error('Error deleting client:', error);
+    } finally {
+      setDeleteDialogOpen(false);
+      setClientToDelete(null);
+    }
   };
+
+  // Calculate statistics for the header
+  const totalClients = clientAgreements.length;
+  const totalAgreements = agreements.length;
+  const totalValue = agreements.reduce((sum, a) => sum + a.totalValue, 0);
+  const pendingAgreements = agreements.filter(a => a.status === 'pending').length;
 
   return (
     <DashboardLayout role="admin">
       <PageHeader 
         title="Agreement Management"
-        description="Review and manage client agreements"
+        description="Manage client agreements and view client details"
       />
 
-      {/* View Agreement Dialog */}
-      <Dialog open={!!viewingAgreement} onOpenChange={() => setViewingAgreement(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Agreement Details</DialogTitle>
+            <DialogTitle>Delete Client</DialogTitle>
           </DialogHeader>
-          {viewingAgreement && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">
-                    {clients.find(c => c.id === viewingAgreement.clientId)?.companyName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Created {format(new Date(viewingAgreement.createdAt), 'MMM d, yyyy')}
-                  </p>
-                </div>
-                <StatusBadge status={viewingAgreement.status} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-                <div>
-                  <p className="text-sm text-muted-foreground">Start Date</p>
-                  <p className="font-medium">{format(new Date(viewingAgreement.startDate), 'MMM d, yyyy')}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">End Date</p>
-                  <p className="font-medium">{format(new Date(viewingAgreement.endDate), 'MMM d, yyyy')}</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Products</h4>
-                <div className="space-y-2">
-                  {viewingAgreement.products.map(product => (
-                    <div key={product.id} className="flex justify-between p-3 bg-muted/50 rounded-lg">
-                      <span className="text-sm">{PRODUCT_TYPE_LABELS[product.type]} ({product.quantity}x)</span>
-                      <span className="font-medium text-sm">${product.totalPrice.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 bg-accent/10 rounded-lg">
-                <p className="text-sm text-muted-foreground">Total Value</p>
-                <p className="text-2xl font-bold text-accent">${viewingAgreement.totalValue.toLocaleString()}</p>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Terms & Conditions</h4>
-                <pre className="text-xs whitespace-pre-wrap p-4 bg-muted rounded-lg max-h-[150px] overflow-y-auto">
-                  {viewingAgreement.termsAndConditions}
-                </pre>
-              </div>
-
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                {viewingAgreement.status === 'pending' && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleStatusChange(viewingAgreement.id, 'rejected')}
-                      className="text-destructive"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Reject
-                    </Button>
-                    <Button
-                      onClick={() => handleStatusChange(viewingAgreement.id, 'approved')}
-                      className="bg-success hover:bg-success/90"
-                    >
-                      <Check className="w-4 h-4 mr-2" />
-                      Approve
-                    </Button>
-                  </>
-                )}
-                <Button variant="outline" onClick={() => handleDownload(viewingAgreement)}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
+          <div className="py-4">
+            <p className="text-muted-foreground">
+              Are you sure you want to delete {clientToDelete?.companyName}? 
+              This will also delete all associated agreements and cannot be undone.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteClient}>
+              Delete
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <Input
-          placeholder="Search by client..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search clients, contacts, or emails..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[150px]">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4" />
+                <span>{filterStatus === 'all' ? 'All Status' : filterStatus}</span>
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterClient} onValueChange={setFilterClient}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="All Clients" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {clients.map(client => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.companyName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Agreements Table */}
-      {filteredAgreements.length === 0 ? (
+      {/* Client Cards Grid */}
+      {filteredClientAgreements.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="w-12 h-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No agreements found</h3>
-            <p className="text-muted-foreground text-sm">
-              {searchQuery || filterStatus !== 'all' ? 'Try different filters' : 'Agreements will appear here'}
+            <Users className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No clients found</h3>
+            <p className="text-muted-foreground text-sm text-center">
+              {searchQuery || filterStatus !== 'all' || filterClient !== 'all' 
+                ? 'Try adjusting your search or filters' 
+                : 'Clients with agreements will appear here'}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">All Agreements ({filteredAgreements.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Client</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Products</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Duration</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Value</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAgreements.map(agreement => {
-                    const client = clients.find(c => c.id === agreement.clientId);
-                    return (
-                      <tr key={agreement.id} className="border-b last:border-0 hover:bg-muted/50">
-                        <td className="py-3 px-4">
-                          <p className="font-medium text-sm">{client?.companyName || 'Unknown'}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(agreement.createdAt), 'MMM d, yyyy')}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4 text-sm">{agreement.products.length} product(s)</td>
-                        <td className="py-3 px-4 text-sm">
-                          {format(new Date(agreement.startDate), 'MMM d')} - {format(new Date(agreement.endDate), 'MMM d')}
-                        </td>
-                        <td className="py-3 px-4 font-medium text-sm">${agreement.totalValue.toLocaleString()}</td>
-                        <td className="py-3 px-4">
-                          <StatusBadge status={agreement.status} />
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => setViewingAgreement(agreement)}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDownload(agreement)}>
-                              <Download className="w-4 h-4" />
-                            </Button>
-                            {agreement.status === 'pending' && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleStatusChange(agreement.id, 'approved')}
-                                  className="text-success"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleStatusChange(agreement.id, 'rejected')}
-                                  className="text-destructive"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredClientAgreements.map(({ client, totalAgreements, totalValue, pendingAgreements, approvedAgreements, latestAgreement }) => (
+            <Card 
+              key={client.id} 
+              className="hover:shadow-lg transition-all duration-300 hover:border-blue-200 cursor-pointer group"
+              onClick={() => handleViewClientDetails(client.id)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Building className="w-5 h-5 text-blue-500" />
+                      {client.companyName}
+                    </CardTitle>
+                    <CardDescription className="mt-2 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        <span>{client.contactPerson}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4" />
+                        <span className="text-sm">{client.email}</span>
+                      </div>
+                      {client.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4" />
+                          <span className="text-sm">{client.phone}</span>
+                        </div>
+                      )}
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {totalAgreements} {totalAgreements === 1 ? 'agreement' : 'agreements'}
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+               
+                {/* CTA Section */}
+                <div className="pt-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-1 text-blue-600 group-hover:gap-2 transition-all">
+                      <span>View Details</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </DashboardLayout>
   );

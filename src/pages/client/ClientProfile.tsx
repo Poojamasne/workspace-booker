@@ -175,7 +175,7 @@ export default function ClientProfile() {
             <div>
               <p className="text-sm text-muted-foreground">Member Since</p>
               <p className="font-medium">
-                {new Date(client.createdAt).toLocaleDateString('en-US', {
+                {new Date(client.createdAt).toLocaleDateString('en-IN', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric'
@@ -185,7 +185,7 @@ export default function ClientProfile() {
             <div>
               <p className="text-sm text-muted-foreground">Last Updated</p>
               <p className="font-medium">
-                {new Date(client.updatedAt).toLocaleDateString('en-US', {
+                {new Date(client.updatedAt).toLocaleDateString('en-IN', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric'

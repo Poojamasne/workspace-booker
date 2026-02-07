@@ -5,7 +5,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/dashboard/PageHeader';
 import StatCard from '@/components/dashboard/StatCard';
 import StatusBadge from '@/components/dashboard/StatusBadge';
-import { Users, Package, FileText, Receipt, TrendingUp, Clock } from 'lucide-react';
+import { Users, Package, FileText, Receipt, TrendingUp, Clock, IndianRupee } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 
@@ -52,13 +52,13 @@ export default function AdminDashboard() {
         <StatCard
           title="Pending Invoices"
           value={stats.pendingInvoices}
-          icon={<Receipt className="w-6 h-6" />}
+          icon={<IndianRupee className="w-6 h-6" />}
           description="Awaiting payment"
         />
         <StatCard
           title="Total Revenue"
-          value={`$${stats.totalRevenue.toLocaleString()}`}
-          icon={<TrendingUp className="w-6 h-6" />}
+          value={`₹${stats.totalRevenue.toLocaleString('en-IN')}`}
+          icon={<IndianRupee className="w-6 h-6" />}
           description={`${stats.paidInvoices} paid invoices`}
         />
       </div>
@@ -113,7 +113,7 @@ export default function AdminDashboard() {
                         <StatusBadge status={agreement.status} />
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        ${agreement.totalValue.toLocaleString()} · {format(new Date(agreement.createdAt), 'MMM d')}
+                        ₹{agreement.totalValue.toLocaleString('en-IN')} · {format(new Date(agreement.createdAt), 'MMM d')}
                       </p>
                     </div>
                   );
@@ -142,7 +142,7 @@ export default function AdminDashboard() {
                       <p className="text-xs text-muted-foreground">{client?.companyName || 'Unknown'}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-sm">${invoice.total.toLocaleString()}</p>
+                      <p className="font-medium text-sm">₹{invoice.total.toLocaleString('en-IN')}</p>
                       <StatusBadge status={invoice.status} />
                     </div>
                   </div>
@@ -184,4 +184,5 @@ export default function AdminDashboard() {
       </div>
     </DashboardLayout>
   );
+  
 }
