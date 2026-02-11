@@ -19,6 +19,7 @@ import AdminClientDetail from "./pages/admin/AdminClientDetail"
 import ClientAgreementsDetails from "./pages/client/ClientAgreementsDetails";
 
 import AdminProducts from "./pages/admin/AdminProducts";
+import AdminProductsDetails from "./pages/admin/AdminProductsDetails";
 import AdminAgreements from "./pages/admin/AdminAgreements";
 import AdminInvoices from "./pages/admin/AdminInvoices";
 import AdminClientAgreementsDetails from "./pages/admin/AdminClientAgreementsDetails";
@@ -88,8 +89,8 @@ function AppRoutes() {
       
       <Route path="/admin/clients/:clientId" element={<ProtectedRoute allowedRole="admin"><AdminClientDetail/></ProtectedRoute>} />
 
-
       <Route path="/admin/products" element={<ProtectedRoute allowedRole="admin"><AdminProducts /></ProtectedRoute>} />
+      <Route path="/admin/products/:productId" element={<ProtectedRoute allowedRole="admin"><AdminProductsDetails/></ProtectedRoute>} />
       <Route path="/admin/agreements" element={<ProtectedRoute allowedRole="admin"><AdminAgreements /></ProtectedRoute>} />
       <Route path="/admin/invoices" element={<ProtectedRoute allowedRole="admin"><AdminInvoices /></ProtectedRoute>} />
        <Route path="/admin/agreements/:clientId" element={<ProtectedRoute allowedRole="admin"><AdminClientAgreementsDetails /></ProtectedRoute>} />

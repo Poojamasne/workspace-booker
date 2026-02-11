@@ -17,7 +17,7 @@ export const demoUsers: User[] = [
     name: 'Sarah Admin',
     role: 'admin',
     createdAt: '2024-01-01T09:00:00Z',
-  },
+  }, 
 ];
 
 // Demo Clients

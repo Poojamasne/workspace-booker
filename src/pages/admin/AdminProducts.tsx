@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { useNavigate } from 'react-router-dom'; // ADD THIS IMPORT
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/dashboard/PageHeader';
 import StatusBadge from '@/components/dashboard/StatusBadge';
@@ -24,17 +25,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Plus, Package, Edit, Trash2, Calendar, Users, IndianRupee, Search, Filter } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, Calendar, Users, IndianRupee, Search, Filter, Eye } from 'lucide-react'; // ADDED Eye icon
 import { ProductType, PRODUCT_TYPE_LABELS, Product } from '@/types';
 import { format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 
 export default function AdminProducts() {
   const { products, clients, addProduct, updateProduct, deleteProduct } = useData();
+  const navigate = useNavigate(); // ADD THIS LINE
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -137,10 +138,6 @@ export default function AdminProducts() {
       deleteProduct(id);
       toast.success('Product deleted successfully');
     }
-  };
-
-  const handleViewDetails = (product: Product) => {
-    setViewingProduct(product);
   };
 
   // Get days remaining
@@ -339,120 +336,7 @@ export default function AdminProducts() {
         }
       />
 
-      {/* View Product Details Dialog - FIXED with responsive height */}
-      <Dialog open={!!viewingProduct} onOpenChange={() => setViewingProduct(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Product Details</DialogTitle>
-          </DialogHeader>
-          {viewingProduct && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl">
-                    {getProductIcon(viewingProduct.type)}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">
-                      {viewingProduct.type === 'others' ? viewingProduct.customType : PRODUCT_TYPE_LABELS[viewingProduct.type]}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Product ID: {viewingProduct.id.slice(0, 8).toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-                <StatusBadge status={viewingProduct.status} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Client</p>
-                  <p className="font-medium">
-                    {clients.find(c => c.id === viewingProduct.clientId)?.companyName || 'Unknown'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Quantity</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    {viewingProduct.quantity} units
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Unit Price</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <IndianRupee className="w-4 h-4" />
-                    {viewingProduct.pricePerUnit.toLocaleString('en-IN')}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Total Value</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <IndianRupee className="w-4 h-4" />
-                    {viewingProduct.totalPrice.toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Start Date</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {format(new Date(viewingProduct.startDate), 'MMM d, yyyy')}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">End Date</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {format(new Date(viewingProduct.endDate), 'MMM d, yyyy')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Duration</p>
-                <p className="font-medium">
-                  {differenceInDays(new Date(viewingProduct.endDate), new Date(viewingProduct.startDate))} days
-                </p>
-              </div>
-
-              {viewingProduct.comments && (
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Notes</p>
-                  <p className="text-sm bg-muted/50 p-3 rounded-lg">
-                    {viewingProduct.comments}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setViewingProduct(null);
-                    handleEdit(viewingProduct);
-                  }}
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-                <Button onClick={() => {
-                  setViewingProduct(null);
-                  handleDelete(viewingProduct.id);
-                }} variant="destructive">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-
-      {/* Filters - UNCHANGED */}
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -495,7 +379,7 @@ export default function AdminProducts() {
         </div>
       </div>
 
-      {/* Products List - Card Layout - UNCHANGED */}
+      {/* Products List - Card Layout */}
       {filteredProducts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -568,8 +452,9 @@ export default function AdminProducts() {
                     <Button 
                       variant="outline" 
                       className="flex-1"
-                      onClick={() => handleViewDetails(product)}
+                      onClick={() => navigate(`/admin/products/${product.id}`)} // CHANGED: Navigate to product details page
                     >
+                      <Eye className="w-4 h-4 mr-2" /> {/* ADDED: Eye icon */}
                       Details
                     </Button>
                     <Button 
